@@ -33,6 +33,7 @@ try:
     preprocessor = joblib.load('preprocessor.pkl')
     encoders = preprocessor['encoders']
     scaler = preprocessor['scaler']
+    scaler_y = preprocessor.get('scaler_y', None)
     feature_names = preprocessor['feature_names']
     print("Preprocessor Loaded Successfully!")
 except Exception as e:
@@ -107,7 +108,12 @@ def predict(data: HealthData):
     
     # Parsing Results
     risk_probs = predictions[0][0]
-    burnout_score = float(predictions[1][0][0])
+    burnout_scaled = float(predictions[1][0][0])
+    
+    if scaler_y is not None:
+        burnout_score = float(scaler_y.inverse_transform([[burnout_scaled]])[0][0])
+    else:
+        burnout_score = burnout_scaled
     
     risk_idx = int(np.argmax(risk_probs))
     risk_labels = ['High', 'Low', 'Medium']

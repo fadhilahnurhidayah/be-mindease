@@ -22,9 +22,15 @@ print("Fitting MinMaxScaler...")
 scaler = MinMaxScaler()
 scaler.fit(X)
 
+print("Fitting MinMaxScaler for Target (scaler_y)...")
+scaler_y = MinMaxScaler()
+y_reg = df['burnout_score'].values.reshape(-1, 1)
+scaler_y.fit(y_reg)
+
 preprocessor = {
     'encoders': encoders,
     'scaler': scaler,
+    'scaler_y': scaler_y,
     'feature_names': list(X.columns)
 }
 
