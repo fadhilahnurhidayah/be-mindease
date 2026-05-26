@@ -1,9 +1,29 @@
-const { Pool } = require('pg');
+const sqlite3 = require('sqlite3').verbose();
+const path = require('path');
 require('dotenv').config();
 
-const pool = new Pool({
-  connectionString: process.env.DATABASE_URL || 'postgresql://postgres:postgres@localhost:5432/mindease',
-});
+const dbPath = path.resolve(__dirname, '../database.sqlite');
+const db = new sqlite3.Database(dbPath);
+
+const pool = {
+  query: (text, params) => {
+    return new Promise((resolve, reject) => {
+      // Convert $1, $2 to ? for sqlite3
+      let sqliteText = text.replace(/\$\d+/g, '?');
+      
+      // Convert some Postgres specific types to SQLite types
+      sqliteText = sqliteText
+        .replace(/SERIAL PRIMARY KEY/gi, 'INTEGER PRIMARY KEY AUTOINCREMENT')
+        .replace(/TIMESTAMP DEFAULT CURRENT_TIMESTAMP/gi, "DATETIME DEFAULT CURRENT_TIMESTAMP")
+        .replace(/NUMERIC\(\d+,\s*\d+\)/gi, "REAL");
+
+      db.all(sqliteText, params || [], function (err, rows) {
+        if (err) return reject(err);
+        resolve({ rows: rows || [], rowCount: this.changes || (rows ? rows.length : 0) });
+      });
+    });
+  }
+};
 
 const initDB = async () => {
   try {
