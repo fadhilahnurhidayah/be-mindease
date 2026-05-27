@@ -52,6 +52,9 @@ class ChatMessage(BaseModel):
     message: str
     history: Optional[Any] = None  # Bisa dict (21 fitur) atau list
 
+class TitleRequest(BaseModel):
+    message: str
+
 # Schema untuk Asesmen Akhir (Poin 4)
 class AssessmentRequest(BaseModel):
     risk_level: str
@@ -284,6 +287,32 @@ PENTING: Hanya balas dengan JSON murni, tidak ada teks lain:
             "is_crisis": False,
             "action": "CONTINUE_CHAT"
         }
+
+@app.post("/generate-title")
+def generate_title(data: TitleRequest):
+    """
+    Menghasilkan judul singkat (1-3 kata) berdasarkan pesan pertama user.
+    """
+    try:
+        prompt = (
+            f"Buatkan judul percakapan sangat singkat (maksimal 3 kata) yang merangkum maksud dari kalimat ini:\n"
+            f"\"{data.message}\"\n\n"
+            f"PENTING: Hanya balas dengan judulnya saja. Tanpa tanda kutip, tanpa titik, tanpa pengantar."
+        )
+        
+        chat_completion = groq_client.chat.completions.create(
+            messages=[{"role": "user", "content": prompt}],
+            model=GROQ_MODEL,
+            temperature=0.3,
+            max_tokens=15,
+        )
+        title = chat_completion.choices[0].message.content.strip().replace('"', '').replace('.', '')
+        if not title:
+            title = "Obrolan Baru"
+        return {"title": title}
+    except Exception as e:
+        return {"title": "Obrolan Baru"}
+
 
 
 @app.post("/predict")

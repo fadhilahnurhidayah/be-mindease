@@ -10,6 +10,8 @@ router.post('/save-result', authenticateToken, chatController.saveChatResult);
 // Rute untuk Sesi Obrolan (Chat Sessions)
 router.get('/sessions', authenticateToken, chatController.getSessions);
 router.post('/sessions', authenticateToken, chatController.createSession);
+router.post('/sessions/:id/generate-title', authenticateToken, chatController.generateSessionTitle);
+router.put('/sessions/:id', authenticateToken, chatController.updateSession);
 router.delete('/sessions/:id', authenticateToken, chatController.deleteSession);
 
 module.exports = router;

@@ -205,3 +205,86 @@ exports.deleteSession = async (req, res) => {
     res.status(500).json({ error: 'Database error' });
   }
 };
+
+exports.updateSession = async (req, res) => {
+  try {
+    const { id } = req.params;
+    const { title, is_pinned } = req.body;
+
+    let query = "UPDATE chat_sessions SET ";
+    const values = [];
+    let count = 1;
+
+    if (title !== undefined) {
+      query += `title = $${count} `;
+      values.push(title);
+      count++;
+    }
+
+    if (is_pinned !== undefined) {
+      if (count > 1) query += ", ";
+      query += `is_pinned = $${count} `;
+      values.push(is_pinned);
+      count++;
+    }
+
+    if (values.length === 0) {
+      return res.status(400).json({ error: 'No fields to update' });
+    }
+
+    query += `WHERE id = $${count} AND user_id = $${count + 1} RETURNING *`;
+    values.push(id, req.user.id);
+
+    const result = await pool.query(query, values);
+    
+    if (result.rows.length === 0) {
+      return res.status(404).json({ error: 'Session not found' });
+    }
+
+    res.json(result.rows[0]);
+  } catch (err) {
+    console.error("Error updateSession:", err);
+    res.status(500).json({ error: 'Database error' });
+  }
+};
+
+exports.generateSessionTitle = async (req, res) => {
+  try {
+    const { id } = req.params;
+    const { message } = req.body;
+
+    if (!message) {
+      return res.status(400).json({ error: 'Message is required' });
+    }
+
+    // Panggil FastAPI untuk generate judul
+    const response = await fetch(`${FASTAPI_URL}/generate-title`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ message })
+    });
+
+    if (!response.ok) {
+      throw new Error(`FastAPI error: ${response.status}`);
+    }
+
+    const data = await response.json();
+    const newTitle = data.title || "Obrolan Baru";
+
+    // Update title di database
+    const result = await pool.query(
+      "UPDATE chat_sessions SET title = $1 WHERE id = $2 AND user_id = $3 RETURNING *",
+      [newTitle, id, req.user.id]
+    );
+
+    if (result.rows.length === 0) {
+      return res.status(404).json({ error: 'Session not found' });
+    }
+
+    res.json(result.rows[0]);
+  } catch (err) {
+    console.error("Error generateSessionTitle:", err.message);
+    res.status(500).json({ error: 'Failed to generate title' });
+  }
+};
+

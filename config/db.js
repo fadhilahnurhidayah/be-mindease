@@ -136,9 +136,16 @@ const initDB = async () => {
         title VARCHAR(255) DEFAULT 'Obrolan Baru',
         risk_level VARCHAR(50) DEFAULT '-',
         burnout_score REAL DEFAULT 0.0,
+        is_pinned BOOLEAN DEFAULT FALSE,
         created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
       )
     `);
+
+    try {
+      await pool.query("ALTER TABLE chat_sessions ADD COLUMN is_pinned BOOLEAN DEFAULT FALSE");
+    } catch (e) {
+      // Column might already exist
+    }
 
     // Create chat_history table
     await pool.query(`
