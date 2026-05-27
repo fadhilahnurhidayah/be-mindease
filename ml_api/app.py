@@ -9,6 +9,10 @@ import joblib
 from fastapi.middleware.cors import CORSMiddleware
 import os
 from groq import Groq
+import pickle
+import re
+from nltk.corpus import stopwords
+from Sastrawi.Stemmer.StemmerFactory import StemmerFactory
 
 from dotenv import load_dotenv
 from pathlib import Path
@@ -42,9 +46,38 @@ try:
 except Exception as e:
     print(f"Error Loading Model/Preprocessor: {e}")
 
+# 1.5 Load Profanity Model & Preprocessor
+try:
+    with open('model/sentiment_model.pkl', 'rb') as f:
+        profanity_model = pickle.load(f)
+    with open('model/tfidf_vectorizer.pkl', 'rb') as f:
+        profanity_tfidf = pickle.load(f)
+        
+    factory = StemmerFactory()
+    stemmer = factory.create_stemmer()
+    profanity_stop_words = set(stopwords.words('indonesian'))
+    print("Profanity Model & Vectorizer Loaded Successfully!")
+except Exception as e:
+    print(f"Error Loading Profanity Model: {e}")
+
+def preprocess_profanity(text):
+    text = str(text).lower()
+    text = re.sub(r'http\S+', '', text)
+    text = re.sub(r'@\w+|#\w+', '', text)
+    text = re.sub(r'USER|RT', '', text)
+    text = re.sub(r'[^a-zA-Z\s]', '', text)
+    text = re.sub(r'\s+', ' ', text).strip()
+    tokens = text.split()
+    tokens = [w for w in tokens if w not in profanity_stop_words]
+    tokens = [stemmer.stem(w) for w in tokens]
+    return ' '.join(tokens)
+
 # 2. Schema Input
 class HealthData(BaseModel):
     features: dict
+
+class ProfanityRequest(BaseModel):
+    text: str
 
 # Schema untuk Chat
 # history bisa berupa dict (currentState dari frontend) atau list
@@ -417,5 +450,29 @@ def get_assessment(data: AssessmentRequest):
     """
     assessment = get_mental_health_assessment(data.risk_level, data.burnout_score)
     return assessment
+
+# === Endpoint Check Profanity ===
+@app.post("/check-profanity")
+def check_profanity(input_data: ProfanityRequest):
+    """
+    Mengecek apakah kalimat mengandung kata kasar menggunakan model NLP.
+    Menggantikan server ML terpisah di port 7000.
+    """
+    try:
+        clean = preprocess_profanity(input_data.text)
+        vector = profanity_tfidf.transform([clean])
+        result = profanity_model.predict(vector)[0]
+        return {
+            "text": input_data.text,
+            "prediction": result,
+            "is_appropriate": result == "sopan"
+        }
+    except Exception as e:
+        print(f"Error Profanity Check: {e}")
+        return {
+            "text": input_data.text,
+            "prediction": "sopan",
+            "is_appropriate": True
+        }
 
 # Cara menjalankan: uvicorn app:app --reload

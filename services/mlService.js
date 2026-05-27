@@ -42,7 +42,7 @@ const checkSentiment = async (text) => {
     const controller = new AbortController();
     const timeoutId = setTimeout(() => controller.abort(), 5000); // 5-second timeout
 
-    const response = await fetch(`${ML_API_URL}/predict`, {
+    const response = await fetch(`${ML_API_URL}/check-profanity`, {
       method: 'POST',
       headers: {
         'Content-Type': 'application/json',
@@ -74,7 +74,7 @@ const checkSentiment = async (text) => {
 
     for (const word of uniqueWords) {
       try {
-        const wordResponse = await fetch(`${ML_API_URL}/predict`, {
+        const wordResponse = await fetch(`${ML_API_URL}/check-profanity`, {
           method: 'POST',
           headers: {
             'Content-Type': 'application/json',
