@@ -1022,12 +1022,17 @@ exports.predictHealth = async (req, res) => {
   const averageScore = (stress + anxiety + depression) / 3;
 
   let riskLevel = 'Low';
-  if (averageScore >= 7) {
+  if (stress >= 8.0 || anxiety >= 8.0 || depression >= 8.0 || averageScore >= 7) {
     riskLevel = 'High';
   } else if (averageScore >= 4) {
     riskLevel = 'Medium';
   }
-  const burnoutScore = Math.min(10, Math.max(0, parseFloat((averageScore * 1.1).toFixed(1))));
+  
+  let burnoutScore = Math.min(10, Math.max(0, parseFloat((averageScore * 1.1).toFixed(1))));
+  if (stress >= 8.0 || anxiety >= 8.0 || depression >= 8.0) {
+    const maxCore = Math.max(stress, anxiety, depression);
+    burnoutScore = Math.max(burnoutScore, parseFloat((maxCore * 0.95).toFixed(1)));
+  }
 
   // 3. Panggil AI untuk memberikan rekomendasi hangat jika ada key
   let recommendation = "Keadaan emosionalmu tampak cukup stabil. Tetap pertahankan pola hidup seimbang dan luangkan waktu untuk relaksasi ya.";

@@ -352,6 +352,45 @@ def generate_title(data: TitleRequest):
 def predict(data: HealthData):
     input_dict = data.features
     
+    # === RE-CALCULATE DERIVED FEATURES DYNAMICALLY ===
+    # Mencegah kontradiksi data yang membingungkan Neural Network
+    if input_dict.get('stress_level') is not None:
+        s_val = float(input_dict['stress_level'])
+        if s_val >= 8.0:
+            input_dict['stress_category'] = 'High'
+        elif s_val >= 4.0:
+            input_dict['stress_category'] = 'Medium'
+        else:
+            input_dict['stress_category'] = 'Low'
+
+    if input_dict.get('sleep_hours') is not None:
+        sl_val = float(input_dict['sleep_hours'])
+        if sl_val < 5.0:
+            input_dict['sleep_category'] = 'Kurang'
+        elif sl_val <= 8.0:
+            input_dict['sleep_category'] = 'Cukup'
+        else:
+            input_dict['sleep_category'] = 'Baik'
+
+    if input_dict.get('social_support') is not None:
+        su_val = float(input_dict['social_support'])
+        if su_val < 5.0:
+            input_dict['support_category'] = 'Low Support'
+        else:
+            input_dict['support_category'] = 'High Support'
+
+    if input_dict.get('screen_time') is not None:
+        sc_val = float(input_dict['screen_time'])
+        if sc_val > 8.0:
+            input_dict['screen_time_category'] = 'Tinggi'
+        else:
+            input_dict['screen_time_category'] = 'Normal'
+
+    st_v = float(input_dict.get('stress_level') or 5.0)
+    an_v = float(input_dict.get('anxiety_score') or 5.0)
+    de_v = float(input_dict.get('depression_score') or 5.0)
+    input_dict['mental_risk_score'] = round((st_v + an_v + de_v) / 3.0, 2)
+    
     # Isi nilai yang kosong (null) dengan DEFAULT_VALUES (Imputation)
     for col in feature_names:
         if col not in input_dict or input_dict[col] is None:
@@ -394,6 +433,19 @@ def predict(data: HealthData):
     risk_idx = int(np.argmax(risk_probs))
     risk_labels = ['High', 'Low', 'Medium']
     risk_level = risk_labels[risk_idx]
+    
+    # === PENGAMAN RISIKO KRISIS (SAFETY OVERWRITE) ===
+    # Jika tingkat stres, kecemasan, atau depresi kualitatif dideteksi sangat tinggi (>= 8.0),
+    # demi keselamatan psikologis mahasiswa, kita wajib menetapkan tingkat risiko sebagai "High" (Waspada)
+    # dan memastikan skor burnout merefleksikan tingkat keparahan tersebut (min 7.5).
+    stress_val = float(input_dict.get('stress_level', 5.0))
+    anxiety_val = float(input_dict.get('anxiety_score', 5.0))
+    dep_val = float(input_dict.get('depression_score', 5.0))
+    
+    if stress_val >= 8.0 or anxiety_val >= 8.0 or dep_val >= 8.0:
+        risk_level = "High"
+        max_core = max(stress_val, anxiety_val, dep_val)
+        burnout_score = max(burnout_score, float(max_core * 0.95))
     
     # === POIN 4: Hasilkan Asesmen Mental Health ===
     assessment = get_mental_health_assessment(risk_level, burnout_score)
